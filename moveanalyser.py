@@ -6,6 +6,19 @@ from pyrsistent import v, pvector
 VALID_PLACES = [(x, y) for y in range(8) for x in range(8)]
 
 
+def logged(func):
+    def logged_func(*args, **kwargs):
+        self = args[0]
+        print(f"INPUT:from: {self._meta['from']}")
+        print(f"INPUT:to: {self._meta['to']}")
+        print(f"INPUT:args: {args[1:]} {kwargs}")
+        res = func(*args, **kwargs)
+        print(f"OUTPUT: {res}")
+        return res
+
+    return logged_func
+
+
 def is_out_of_bounds(pos: tuple[int, int]) -> bool:
     return pos not in VALID_PLACES
 
@@ -115,6 +128,7 @@ def array2d_to_immutable(arr: list[list[int]]) -> pvector(pvector([int])):
 
 class MoveAnalyser:
     def __init__(self, fromm: list[list[int]], to: list[list[int]]):
+        self._meta = {"from": fromm, "to": to}
         self.fromm = array2d_to_immutable(fromm)
         self.to = array2d_to_immutable(to)
 
@@ -165,6 +179,7 @@ class MoveAnalyser:
     def _get_moves_for_piece(self, board: pvector(pvector([int])), p: Piece) -> list[Move]:
         return [m for pm in get_potential_moves(p, board) if (m := self._create_move(board, p.pos, pm, p)) is not None]
 
+    @logged
     def calculate_move_for_side(self, side: Side) -> list[Move]:
         moves: list[Move] = [m for p in self._get_pieces_for_side(side) for m in
                              self._get_moves_for_piece(self.fromm, p)]
