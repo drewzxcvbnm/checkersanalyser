@@ -1,5 +1,6 @@
 import enum
 from copy import deepcopy
+from typing import Optional
 
 from pyrsistent import v, pvector, freeze
 
@@ -61,6 +62,9 @@ class Side(enum.Enum):
         distance_to_enemy_line_before = abs(self.last_enemy_line() - fr[0])
         distance_to_enemy_line_after = abs(self.last_enemy_line() - to[0])
         return distance_to_enemy_line_after > distance_to_enemy_line_before
+
+    def is_enemy(self, v: int) -> bool:
+        return v in self.opposite_side().value
 
 
 def has_enemy(board_value: int, side: Side) -> bool:
@@ -193,7 +197,8 @@ class MoveAnalyser:
             self._make_move(board, valid_player_moves, next_move)
 
     @staticmethod
-    def _create_move(board: pvector(pvector([int])), fr: tuple[int, int], to: tuple[int, int], p: Piece) -> Move | None:
+    def _create_move(board: pvector(pvector([int])), fr: tuple[int, int], to: tuple[int, int], p: Piece) -> Optional[
+        Move]:
         is_eat_move = False
         if is_out_of_bounds(to) or has_friend(board[to[0]][to[1]], p.side):
             return None
