@@ -1,7 +1,7 @@
 import enum
 from copy import deepcopy
 
-from pyrsistent import v, pvector
+from pyrsistent import v, pvector, freeze
 
 VALID_PLACES = [(x, y) for y in range(8) for x in range(8)]
 
@@ -41,8 +41,26 @@ class Side(enum.Enum):
     WHITES = (1, 2)
     BLACKES = (3, 4)
 
+    @staticmethod
+    def deduce_side(v: int):
+        return Side.BLACKES if v in Side.BLACKES.value else Side.WHITES
+
+    def to_pawn(self, v: int) -> int:
+        return Side.WHITES.value[0] if self == Side.WHITES else Side.BLACKES.value[0]
+
     def opposite_side(self):
         return Side.WHITES if self == Side.BLACKES else Side.BLACKES
+
+    def last_enemy_line(self):
+        if self == Side.BLACKES:
+            return 7
+        else:
+            return 0
+
+    def is_back_move(self, fr: tuple[int, int], to: tuple[int, int]):
+        distance_to_enemy_line_before = abs(self.last_enemy_line() - fr[0])
+        distance_to_enemy_line_after = abs(self.last_enemy_line() - to[0])
+        return distance_to_enemy_line_after > distance_to_enemy_line_before
 
 
 def has_enemy(board_value: int, side: Side) -> bool:
@@ -102,6 +120,14 @@ class Move:
             res += " -> " + str(m.to)
         return "{" + res + "}"
 
+    def to_list(self) -> list[tuple[int, int]]:
+        moves = get_move_chain(self)
+        moves.reverse()
+        res = [moves[0].fr]
+        for m in moves:
+            res.append(m.to)
+        return res
+
 
 def get_move_chain(m: Move, chain=None) -> list[Move]:
     if chain is None:
@@ -112,25 +138,28 @@ def get_move_chain(m: Move, chain=None) -> list[Move]:
     return get_move_chain(m.prev_move, chain)
 
 
-def is_back_move(fr: tuple[int, int], move_to: tuple[int, int], side: Side) -> bool:
-    if side == Side.BLACKES:
-        return move_to[0] > fr[0]
-    return move_to[0] < fr[0]
-
-
 def get_movement_vector(pos1: tuple[int, int], pos2: tuple[int, int]) -> tuple[int, int]:
     return norm(pos2[0] - pos1[0]), norm(pos2[1] - pos1[1])
 
 
-def array2d_to_immutable(arr: list[list[int]]) -> pvector(pvector([int])):
-    return v(*[v(*row) for row in arr])
+def simplify_cell(v: int):
+    if v == 0:
+        return v
+    return Side.deduce_side(v).to_pawn(v)
+
+
+def simplified_board(board: pvector(pvector([int]))):
+    sboard = []
+    for row in board:
+        sboard.append([simplify_cell(i) for i in row.tolist()])
+    return freeze(sboard)
 
 
 class MoveAnalyser:
     def __init__(self, fromm: list[list[int]], to: list[list[int]]):
         self._meta = {"from": fromm, "to": to}
-        self.fromm = array2d_to_immutable(fromm)
-        self.to = array2d_to_immutable(to)
+        self.fromm = freeze(fromm)
+        self.to = simplified_board(freeze(to))
 
     def _get_pieces_for_side(self, side: Side) -> list[Piece]:
         pieces = []
@@ -150,11 +179,14 @@ class MoveAnalyser:
             eaten_piece = tuple(b - a for a, b in zip(move_vector, move.to))
             board = board.set(eaten_piece[0], board[eaten_piece[0]].set(eaten_piece[1], 0))  # set eaten place to 0
 
-        if board == self.to:
+        if simplified_board(board) == self.to:
+            # if board == self.to:
             valid_player_moves.append(move)
         if not move.is_eat_move:
             return
         new_piece = deepcopy(move.piece)
+        if move.to[0] == move.piece.side.last_enemy_line():
+            new_piece.is_queen = True
         new_piece.pos = move.to
         for next_move in filter(lambda m: m.is_eat_move, self._get_moves_for_piece(board, new_piece)):
             next_move.prev_move = move
@@ -166,7 +198,7 @@ class MoveAnalyser:
         if is_out_of_bounds(to) or has_friend(board[to[0]][to[1]], p.side):
             return None
         cell = board[to[0]][to[1]]
-        if not p.is_queen and is_back_move(fr, to, p.side) and not has_enemy(cell, p.side):
+        if not p.is_queen and p.side.is_back_move(fr, to) and not has_enemy(cell, p.side):
             return None
         if has_enemy(cell, p.side):
             move_vector = get_movement_vector(fr, to)
