@@ -3,7 +3,8 @@ from typing import Optional
 
 from pyrsistent import freeze, pvector
 
-from common import Move, Side, get_move_chain, Piece, is_out_of_bounds, has_friend, has_enemy, get_movement_vector, add, \
+from checkersanalyser.common import Move, Side, get_move_chain, Piece, is_out_of_bounds, has_friend, has_enemy, \
+    get_movement_vector, add, \
     is_free_for_occupation, flatlist, set_board
 from moveanalyser import get_potential_moves
 
@@ -104,7 +105,7 @@ def _get_complete_player_moves(board: Board, moving_side: Side) -> list[Move]:
     return [cm for m in obl_moves for cm in complete_move(m, board)]
 
 
-def _get_winning_side(b: Board) -> Side | None:
+def _get_winning_side(b: Board) -> Optional[Side]:
     found_sides = set()
     for row in b:
         for cell in row:

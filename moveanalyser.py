@@ -4,7 +4,7 @@ from typing import Optional
 
 from pyrsistent import v, pvector, freeze
 
-from common import simplified_board, Side, Piece, get_movement_vector, has_friend, is_out_of_bounds, Move, has_enemy, \
+from checkersanalyser.common import simplified_board, Side, Piece, get_movement_vector, has_friend, is_out_of_bounds, Move, has_enemy, \
     add, is_free_for_occupation
 
 
