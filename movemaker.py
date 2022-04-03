@@ -6,7 +6,7 @@ from pyrsistent import freeze, pvector
 from checkersanalyser.common import Move, Side, get_move_chain, Piece, is_out_of_bounds, has_friend, has_enemy, \
     get_movement_vector, add, \
     is_free_for_occupation, flatlist, set_board
-from moveanalyser import get_potential_moves
+from checkersanalyser.moveanalyser import get_potential_moves
 
 Board = list[list[int]]
 
