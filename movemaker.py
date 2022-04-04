@@ -157,3 +157,17 @@ def deduce_best_move(board: list[list[int]], side: Side) -> Move:
     chain = get_move_chain(m)
     chain.reverse()
     return chain[0]
+
+
+def deduce_best_complete_move(board: list[list[int]], side: Side) -> Move:
+    board = freeze(board)
+    leaves = _get_tree_leaves(board, side)
+    m = max(leaves, key=lambda x: x[1])[0]
+    chain = get_move_chain(m)
+    chain.reverse()
+    m = chain[0]
+    for move in chain:
+        if move.piece.side != side:
+            break
+        m = move
+    return m
