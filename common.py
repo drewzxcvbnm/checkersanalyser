@@ -36,10 +36,18 @@ class Side(enum.Enum):
         return Side.BLACKES if v in Side.BLACKES.value else Side.WHITES
 
     def to_pawn(self, v: int) -> int:
-        return Side.WHITES.value[0] if self == Side.WHITES else Side.BLACKES.value[0]
+        if self == Side.WHITES and v in Side.WHITES.value:
+            return Side.WHITES.value[0]
+        if self == Side.BLACKES and v in Side.BLACKES.value:
+            return Side.BLACKES.value[0]
+        return v
 
     def to_queen(self, v: int) -> int:
-        return Side.WHITES.value[1] if self == Side.WHITES else Side.BLACKES.value[1]
+        if self == Side.WHITES and v in Side.WHITES.value:
+            return Side.WHITES.value[1]
+        if self == Side.BLACKES and v in Side.BLACKES.value:
+            return Side.BLACKES.value[1]
+        return v
 
     def opposite_side(self):
         return Side.WHITES if self == Side.BLACKES else Side.BLACKES
@@ -57,6 +65,11 @@ class Side(enum.Enum):
 
     def is_enemy(self, v: int) -> bool:
         return v in self.opposite_side().value
+
+    def __str__(self):
+        if self == Side.WHITES:
+            return "Whites"
+        return "Blacks"
 
 
 def has_enemy(board_value: int, side: Side) -> bool:
