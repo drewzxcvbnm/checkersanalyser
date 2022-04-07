@@ -88,6 +88,16 @@ class Piece:
         self.is_queen = is_queen
 
 
+def _get_pieces_for_side(board, side: Side) -> list[Piece]:
+    pieces = []
+    for i in range(len(board)):
+        for j in range(len(board)):
+            if board[i][j] in side.value:
+                is_queen = board[i][j] == side.value[1]
+                pieces.append(Piece(i, j, side, is_queen))
+    return pieces
+
+
 class Move:
 
     def __init__(self, fr: tuple[int, int], to: tuple[int, int], is_eat_move: bool, piece: Piece):
@@ -96,6 +106,9 @@ class Move:
         self.is_eat_move = is_eat_move
         self.piece = piece
         self.prev_move = None
+        self.children = None
+        self.board = None
+        self.is_final = None
 
     def __str__(self):
         return f"{self.fr} -> {self.to}"
@@ -115,6 +128,23 @@ class Move:
         for m in moves:
             res.append(m.to)
         return res
+
+    def get_side(self) -> Side:
+        return self.piece.side
+
+    def get_best_score(self, target_side: Side) -> int:
+        if self.children is None:
+            return self.score(target_side)
+        child_scores = [i.get_best_score(target_side) for i in self.children]
+        if self.get_side() == target_side:
+            return min(child_scores)
+        else:
+            return max(child_scores)
+
+    def score(self, target_side):
+        s1 = len(_get_pieces_for_side(self.board, target_side))
+        s2 = len(_get_pieces_for_side(self.board, target_side.opposite_side()))
+        return s1 - s2
 
 
 def get_move_chain(m: Move, chain=None) -> list[Move]:

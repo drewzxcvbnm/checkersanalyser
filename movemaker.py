@@ -5,20 +5,10 @@ from pyrsistent import freeze, pvector
 
 from checkersanalyser.common import Move, Side, get_move_chain, Piece, is_out_of_bounds, has_friend, has_enemy, \
     get_movement_vector, add, \
-    is_free_for_occupation, flatlist, set_board
+    is_free_for_occupation, flatlist, set_board, _get_pieces_for_side
 from checkersanalyser.moveanalyser import get_potential_moves
 
 Board = list[list[int]]
-
-
-def _get_pieces_for_side(board, side: Side) -> list[Piece]:
-    pieces = []
-    for i in range(len(board)):
-        for j in range(len(board)):
-            if board[i][j] in side.value:
-                is_queen = board[i][j] == side.value[1]
-                pieces.append(Piece(i, j, side, is_queen))
-    return pieces
 
 
 def _create_move(board: pvector(pvector([int])), fr: tuple[int, int], to: tuple[int, int], p: Piece) -> Optional[Move]:
@@ -69,6 +59,7 @@ def get_non_obligatory_moves(moves: list[Move]):
 
 
 def complete_move(m: Move, b: Board) -> [Move]:
+    m.board = b
     s = m.piece.side
     v = b[m.fr[0]][m.fr[1]]
     if s.last_enemy_line() == m.to[0]:
@@ -91,10 +82,16 @@ def complete_move(m: Move, b: Board) -> [Move]:
     if len(next_moves) == 0:
         return [m]
     res = []
+    m.children = next_moves
     for next_move in next_moves:
         next_move.prev_move = m
         [res.append(i) for i in complete_move(next_move, b)]
     return res
+
+
+def _marked_final(m: Move) -> Move:
+    m.is_final = True
+    return m
 
 
 def _get_complete_player_moves(board: Board, moving_side: Side) -> list[Move]:
@@ -102,7 +99,7 @@ def _get_complete_player_moves(board: Board, moving_side: Side) -> list[Move]:
     obl_moves = get_obligatory_moves(start_moves)
     if len(obl_moves) == 0:
         return start_moves
-    return [cm for m in obl_moves for cm in complete_move(m, board)]
+    return [_marked_final(cm) for m in obl_moves for cm in complete_move(m, board)]
 
 
 def _get_winning_side(b: Board) -> Optional[Side]:
@@ -123,13 +120,17 @@ def _get_winning_side(b: Board) -> Optional[Side]:
         return Side.BLACKES
 
 
-def simulate_game(board: Board, moving_side: Side, prev_move: Move = None, depth: int = 0) -> list[tuple[Move, Board]]:
+def simulate_game(board: Board, moving_side: Side, prev_move: Move = None, depth: int = 0) -> list[Move]:
     if _get_winning_side(board) is not None:
-        return [(prev_move, board)]
+        prev_move.board = board
+        return [prev_move]
     if depth >= 5:
-        return [(prev_move, board)]
+        prev_move.board = board
+        return [prev_move]
     moves = _get_complete_player_moves(board, moving_side)
     res = []
+    if prev_move is not None:
+        prev_move.children = moves
     for m in moves:
         new_board = execute_move(board, m.to_list(), moving_side)
         if prev_move is not None:
@@ -146,7 +147,7 @@ def calculate_board_score(board: pvector(pvector([int])), side: Side) -> int:
 
 def _get_tree_leaves(board: pvector(pvector([int])), side: Side) -> list[tuple[Move, int]]:
     res = [i for i in simulate_game(board, side)]
-    leaves = [(i[0], calculate_board_score(i[1], side)) for i in res]
+    leaves = [(i, calculate_board_score(i.board, side)) for i in res]
     return leaves
 
 
@@ -171,3 +172,24 @@ def deduce_best_complete_move(board: list[list[int]], side: Side) -> Move:
             break
         m = move
     return m
+
+
+def _get_root_moves(leaves: list[Move]) -> list[Move]:
+    roots = set()
+    while len(leaves) != 0:
+        l = leaves[-1]
+        if l.prev_move is None:
+            roots.add(leaves.pop())
+        else:
+            leaves[-1] = l.prev_move
+    return list(roots)
+
+
+def deduce_best_min_max_move(board: Board, side: Side) -> Move:
+    board = freeze(board)
+    leaves = [i for i in simulate_game(board, side)]
+    moves = _get_root_moves(leaves)
+    move = max([(i, i.get_best_score(side)) for i in moves], key=lambda x: x[1])[0]
+    while not move.is_final:
+        move = max([(i, i.get_best_score(side)) for i in move.children], key=lambda x: x[1])[0]
+    return move
