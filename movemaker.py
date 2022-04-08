@@ -10,6 +10,7 @@ from checkersanalyser.moveanalyser import get_potential_moves
 
 Board = list[list[int]]
 
+target_side = Side.BLACKES;
 
 def _create_move(board: pvector(pvector([int])), fr: tuple[int, int], to: tuple[int, int], p: Piece) -> Optional[Move]:
     is_eat_move = False
@@ -98,7 +99,7 @@ def _get_complete_player_moves(board: Board, moving_side: Side) -> list[Move]:
     start_moves = [m for p in _get_pieces_for_side(board, moving_side) for m in _get_moves_for_piece(board, p)]
     obl_moves = get_obligatory_moves(start_moves)
     if len(obl_moves) == 0:
-        return start_moves
+        return [_marked_final(m) for m in start_moves]
     return [_marked_final(cm) for m in obl_moves for cm in complete_move(m, board)]
 
 
@@ -121,15 +122,18 @@ def _get_winning_side(b: Board) -> Optional[Side]:
 
 
 def simulate_game(board: Board, moving_side: Side, prev_move: Move = None, depth: int = 0) -> list[Move]:
-    if _get_winning_side(board) is not None:
+    if _get_winning_side(board) is not None and prev_move is not None:
         prev_move.board = board
         return [prev_move]
-    if depth >= 5:
+    if depth >= 5 and prev_move is not None:
         prev_move.board = board
         return [prev_move]
     moves = _get_complete_player_moves(board, moving_side)
+    if len(moves) == 0 and prev_move is not None:
+        prev_move.board = board
+        return [prev_move]
     res = []
-    if prev_move is not None:
+    if prev_move is not None and len(moves) != 0:
         prev_move.children = moves
     for m in moves:
         new_board = execute_move(board, m.to_list(), moving_side)
@@ -152,6 +156,7 @@ def _get_tree_leaves(board: pvector(pvector([int])), side: Side) -> list[tuple[M
 
 
 def deduce_best_move(board: list[list[int]], side: Side) -> Move:
+    target_side = side
     board = freeze(board)
     leaves = _get_tree_leaves(board, side)
     m = max(leaves, key=lambda x: x[1])[0]
@@ -161,6 +166,7 @@ def deduce_best_move(board: list[list[int]], side: Side) -> Move:
 
 
 def deduce_best_complete_move(board: list[list[int]], side: Side) -> Move:
+    target_side = side
     board = freeze(board)
     leaves = _get_tree_leaves(board, side)
     m = max(leaves, key=lambda x: x[1])[0]
@@ -185,9 +191,12 @@ def _get_root_moves(leaves: list[Move]) -> list[Move]:
     return list(roots)
 
 
-def deduce_best_min_max_move(board: Board, side: Side) -> Move:
+def deduce_best_min_max_move(board: Board, side: Side) -> Optional[Move]:
+    target_side = side
     board = freeze(board)
     leaves = [i for i in simulate_game(board, side)]
+    if len(leaves) == 0:
+        return None
     moves = _get_root_moves(leaves)
     move = max([(i, i.get_best_score(side)) for i in moves], key=lambda x: x[1])[0]
     while not move.is_final:

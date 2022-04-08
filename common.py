@@ -109,6 +109,7 @@ class Move:
         self.children = None
         self.board = None
         self.is_final = None
+        self.manual_score = None
 
     def __str__(self):
         return f"{self.fr} -> {self.to}"
@@ -142,6 +143,8 @@ class Move:
             return max(child_scores)
 
     def score(self, target_side):
+        if self.manual_score is not None:
+            return self.manual_score
         s1 = len(_get_pieces_for_side(self.board, target_side))
         s2 = len(_get_pieces_for_side(self.board, target_side.opposite_side()))
         return s1 - s2
